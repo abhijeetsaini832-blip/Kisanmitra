@@ -1,67 +1,131 @@
-# 🌾 KisanMitra – AI farm advisor for rural India
+# 🌾 KisanMitra
 
-**Hackathon theme:** AgriTech & Rural Innovation (with an AI Agents twist)
+**An AI farm assistant for small farmers in India.** It checks your crops, mandi prices and weather, then takes action for you: sets price alerts and logs farm work.
 
-**Problem:** Small farmers decide when to sell, irrigate, spray or harvest using guesswork and middlemen. Information is scattered, mostly in English, and never tied to *their* fields.
+---
 
-**Solution:** One app where the farmer tracks crops and costs, watches mandi prices, sets price alerts, and chats (in any language) with an **autonomous AI agent** that looks up their real crops, prices and weather, and takes actions for them (create alerts, log activities).
+## About
+
+Small farmers often decide when to sell, irrigate, spray or harvest using guesswork and middlemen. Information is scattered, mostly in English, and never tied to their own fields.
+
+KisanMitra puts it all in one place. A farmer can track crops and costs, watch mandi prices, set price alerts, and chat in Hindi, English or Hinglish with an AI agent that reads their real data and acts on it.
+
+## Features
+
+| Feature | What it does |
+|---|---|
+| 🤖 AI Advisor | Chat that uses the farmer's own crops, prices and weather |
+| 🌱 Crop tracker | Area, soil, sowing date, activity and cost logs |
+| 📈 Price alerts | 9 commodities, 7-day trend, alert at your target price |
+| 📊 Dashboard | Projected revenue, total spend and profit for the season |
+| ⛅ Weather | 5-day forecast (Open-Meteo, no key needed) |
+| 🛡️ Safe advice | Label doses only; serious cases are sent to the local KVK |
+| 🔌 Always available | An offline advisor answers if no AI key is set or the API fails |
+| 👤 Profile | Login, farmer profile and profile photo |
+
+### What makes it different
+
+1. **An agent that acts.** It creates price alerts and logs crop activity, it does not only reply with text.
+2. **Your farm, not generic advice.** Every answer starts from the farmer's own data.
+3. **Works with any AI provider.** Gemini, ChatGPT or Claude, through the same tool definitions.
 
 ## Tech stack (MERN)
-- **MongoDB** + Mongoose – users, crops, activity logs, prices, alerts, chat history
-- **Express / Node** – REST API, JWT auth, helmet, rate limiting
-- **React (Vite)** – dashboard, crop tracker, AI chat, price charts (Recharts)
-- **AI agent** – Claude tool-use loop (`server/services/agent.js`) with 5 tools; offline rule-based fallback so the demo works without an API key
 
-## Quick start
+- **MongoDB** + Mongoose: users, crops with logs, prices, alerts, chat history
+- **Express / Node.js**: REST API, JWT login, bcrypt passwords, helmet, rate limiting
+- **React (Vite)**: dashboard, crop tracker, chat, price charts (Recharts)
+- **AI agent service**: tool-calling loop (up to 6 steps) with 5 tools, in `server/services/agent.js`
+
+```
+React (Vite)  ──►  Express API  ──►  MongoDB
+                       │
+                       └──►  AI agent  ──►  Gemini / OpenAI / Claude
+                                  └──►  Open-Meteo (weather)
+```
+
+## Agent tools
+
+`get_my_crops` · `get_market_prices` · `get_weather` · `create_price_alert` · `log_crop_activity`
+
+## Project structure
+
+```
+kisanmitra/
+├── client/            React app (Vite)
+│   └── src/           pages, API helper, auth context
+├── server/
+│   ├── routes/        auth, crops, prices, advisory, dashboard
+│   ├── models/        User, Crop, PriceEntry, Alert, Advisory
+│   ├── services/      agent.js (AI loop), tools.js (agent tools)
+│   ├── seed.js        demo data
+│   └── server.js      app entry
+└── docker-compose.yml
+```
+
+## Run it locally
+
+You need **Node.js 18+** and **MongoDB** (local, Docker or MongoDB Atlas).
+
 ```bash
-# 1. Database (or use MongoDB Atlas and set MONGO_URI)
+# 1. Database (skip if you already have MongoDB or Atlas)
 docker run -d -p 27017:27017 mongo:7
 
 # 2. Backend
 cd server
-cp .env.example .env        # paste ONE key: GEMINI_API_KEY / OPENAI_API_KEY / ANTHROPIC_API_KEY (optional)
+cp .env.example .env      # on Windows: copy .env.example .env
 npm install
-npm run seed                # demo data
-npm run dev
+npm run seed              # optional demo data
+npm run dev               # http://localhost:5000
 
 # 3. Frontend (new terminal)
 cd client
 npm install
-npm run dev                 # http://localhost:5173
+npm run dev               # http://localhost:5173
 ```
-Demo login: `demo@kisanmitra.in` / `demo1234`
 
-Or run everything with `docker compose up` (set `ANTHROPIC_API_KEY` in your shell for live AI).
+Demo login after seeding: `demo@kisanmitra.in` / `demo1234`
+
+Or run everything with Docker: `docker compose up`
+
+### Environment variables
+
+Copy `server/.env.example` to `server/.env` and fill it in. **Never commit `.env`.**
+
+| Variable | Purpose |
+|---|---|
+| `PORT` | API port (default 5000) |
+| `MONGO_URI` | MongoDB connection string |
+| `JWT_SECRET` | Long random text for login tokens |
+| `CLIENT_ORIGIN` | Frontend URL allowed by CORS |
+| `GEMINI_API_KEY` / `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` | Fill **one**. Free Gemini key: https://aistudio.google.com/apikey |
+| `AI_PROVIDER` | Optional: `gemini`, `openai` or `anthropic` |
+| `GEMINI_MODEL` | e.g. `gemini-flash-lite-latest` |
+
+With no key, the built-in offline advisor answers, so the app still works.
+
+When the frontend and API are hosted separately, set `VITE_API_URL` in the client (for example `https://your-api.onrender.com/api`).
 
 ## API overview
+
 | Route | Purpose |
 |---|---|
-| `POST /api/auth/register, /login` · `GET/PUT /api/auth/me` | JWT auth + profile |
-| `GET/POST/PUT/DELETE /api/crops` · `POST /api/crops/:id/logs` | Crop tracker + cost logs |
-| `GET /api/prices` · `GET /api/prices/:commodity` | Prices + 7-day trend |
+| `POST /api/auth/register`, `/login` · `GET/PUT /api/auth/me` | JWT auth and profile |
+| `GET/POST/PUT/DELETE /api/crops` · `POST /api/crops/:id/logs` | Crop tracker and cost logs |
+| `GET /api/prices` · `GET /api/prices/:commodity` | Prices and 7-day trend |
 | `GET/POST/DELETE /api/prices/alerts…` | Price alerts |
 | `POST /api/advisory/:id/message` | Chat with the agent (`new` starts a chat) |
-| `GET /api/dashboard` | Totals, projected revenue/profit, cost breakdown |
+| `GET /api/dashboard` | Totals, projected revenue and profit, cost breakdown |
+| `GET /api/health` | Server status and active AI provider |
 
-## Agent tools
-`get_my_crops` · `get_market_prices` · `get_weather` (Open-Meteo, no key) · `create_price_alert` · `log_crop_activity`
+## Roadmap
 
-## 3-minute demo script
-1. **Problem (20s):** farmers lose money on timing and information gaps.
-2. **Login** with demo account → **Dashboard**: projected revenue/profit from real crops × live prices.
-3. **Prices tab:** wheat trending up; show the alert that already triggered.
-4. **AI Advisor:** ask "What is the wheat price today? Should I sell?" → show the tool badges (agent looked up prices itself).
-5. Ask "Set an alert when onion goes above 2000" → open Prices tab, alert exists. *The agent acted, not just answered.*
-6. Ask in Hindi: "मेरे टमाटर के पत्ते पीले हो रहे हैं".
-7. **Impact (30s):** 100M+ farming households in India; target cheaper inputs, better sale timing, fewer crop losses.
-
-## Ideas to extend (if you have time before judging)
-- Image upload for crop disease detection (vision model)
-- SMS / WhatsApp alerts via Twilio
-- Live Agmarknet / data.gov.in mandi price import (replace seed data)
-- Offline-first PWA + voice input for low-literacy users
-- Cooperative selling: pool produce from nearby farmers
+- Live Agmarknet mandi prices
+- Hindi voice input and an installable phone app
+- Crop disease check from a photo
+- SMS and WhatsApp alerts, more languages
+- Village cooperatives that sell produce together
 
 ## Notes
-- Prices in the seed script are **sample data**; say so in your pitch, and mention the Agmarknet integration as the next step.
-- The advisor gives general guidance; for serious pest/disease outbreaks it points farmers to their local KVK.
+
+- Prices in the seed script are **sample data**. Live Agmarknet data is planned.
+- The advisor gives general guidance. For serious pest or disease outbreaks it points farmers to the local KVK.
